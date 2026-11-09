@@ -11,6 +11,11 @@ requires-python = ">=3.10"
 dependencies = [
     "beautifulsoup4",
     "lxml",
+    "langchain-experimental",
+    "langchain-huggingface",
+    "langchain-text-splitters",
+    "qdrant-client",
+    "sentence-transformers",
 ]
 
 [tool.setuptools.packages.find]

@@ -16,7 +16,6 @@ from bs4 import BeautifulSoup, NavigableString
 
 from auditlens.config import (
     MANIFEST_PATH as MANIFEST,
-    MIN_SECTION_CHARS,
     MIN_TABLE_CHARS,
     PARSED_DIR as PARSED,
     RAW_DIR as RAW,
@@ -25,7 +24,7 @@ from auditlens.config import (
 PAGEBREAK = "@@PAGEBREAK@@"
 
 ITEM_RE = re.compile(
-    r"^\s*item\s+(\d{1,2}[A-C]?)\s*[\.\:\-–—]?\s*(.{0,90})$",
+    r"^\s*item\s+(\d{1,2}[A-C]?)\s*[\.\:\-–—]?\s*(.*)$",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -40,8 +39,10 @@ class Section:
     calendar_period: str
     section_id: str          # "Item 1A"
     section_title: str       # "Risk Factors"
-    page_start: int | None
-    page_end: int | None
+    page_position_start: int | None   # position in the file, 1-based
+    page_position_end: int | None
+    page_printed_start: int | None    # number printed in the filing
+    page_printed_end: int | None
     char_len: int
     source_url: str
     text: str
@@ -131,16 +132,21 @@ def _page_of(offset: int, offsets: list[int]) -> int | None:
     return page
 
 
+def _printed_page(position: int | None, offset: int) -> int | None:
+    """Position minus the filing's offset; None for front matter."""
+    if position is None or position - offset < 1:
+        return None
+    return position - offset
+
+
 def _find_sections(text: str) -> list[tuple[int, str, str]]:
-    """Return (offset, item_id, title); drops table-of-contents entries."""
-    hits = [(m.start(), m.group(1).upper(), m.group(2).strip(" .:-–—"))
+    """Return (offset, item_id, title).
+
+    Table-of-contents entries never match: _inline_tables has already turned
+    them into markdown rows, which start with "|".
+    """
+    return [(m.start(), m.group(1).upper(), m.group(2).strip(" .:-–—"))
             for m in ITEM_RE.finditer(text)]
-    keep = []
-    for i, h in enumerate(hits):
-        nxt = hits[i + 1][0] if i + 1 < len(hits) else len(text)
-        if nxt - h[0] >= MIN_SECTION_CHARS:
-            keep.append(h)
-    return keep
 
 
 # ---------------- driver ----------------
@@ -167,6 +173,8 @@ def parse_file(path: pathlib.Path, meta: dict) -> list[Section]:
     for i, (offset, item_id, title) in enumerate(hits):
         end = hits[i + 1][0] if i + 1 < len(hits) else len(text)
         body = text[offset:end].strip()
+        position_start = _page_of(offset, offsets)
+        position_end = _page_of(end - 1, offsets)
         sections.append(Section(
             doc_id=doc_id,
             ticker=meta["ticker"],
@@ -176,8 +184,10 @@ def parse_file(path: pathlib.Path, meta: dict) -> list[Section]:
             calendar_period=meta["calendar_period"],
             section_id=f"Item {item_id}",
             section_title=title,
-            page_start=_page_of(offset, offsets),
-            page_end=_page_of(end - 1, offsets),
+            page_position_start=position_start,
+            page_position_end=position_end,
+            page_printed_start=_printed_page(position_start, meta["page_number_offset"]),
+            page_printed_end=_printed_page(position_end, meta["page_number_offset"]),
             char_len=len(body),
             source_url=meta["source_url"],
             text=body,
