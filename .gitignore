@@ -1,0 +1,10 @@
+data/raw/
+data/parsed/
+
+.env
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
