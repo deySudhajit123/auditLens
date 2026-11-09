@@ -32,4 +32,5 @@ COLLECTION = "auditlens"
 QDRANT_URL = "http://localhost:6333"
 
 # Generation
-LLM_MODEL = "..."     # whatever you're using to generate
+LLM_MODEL = "llama3.1:8b"   # local, via Ollama
+LLM_NUM_CTX = 8192          # Ollama silently drops prompt text beyond this

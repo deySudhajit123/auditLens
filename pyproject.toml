@@ -14,6 +14,7 @@ dependencies = [
     "langchain-experimental",
     "langchain-huggingface",
     "langchain-text-splitters",
+    "ollama",
     "qdrant-client",
     "sentence-transformers",
 ]
